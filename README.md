@@ -1,56 +1,72 @@
-# Welcome to your Expo app 👋
+# Consecrate
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+A group prayer and fasting app for churches. A leader sets up a fast, members
+join with a six-character code, and everyone follows the same daily scripture,
+prayer focus and check-in.
 
-## Get started
+Version 1 targets iOS and is built with Expo so Android can follow.
 
-1. Install dependencies
-
-   ```bash
-   npm install
-   ```
-
-2. Start the app
-
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **src/app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+## Running it
 
 ```bash
-npm run reset-project
+npm install
+cp .env.example .env   # then fill in the Supabase URL and anon key
+npm start
 ```
 
-This command will move the starter code to the **example** directory and create a blank **src/app** directory where you can start developing.
+Without a `.env` the app starts but shows a setup screen instead of the join
+screen.
 
-### Other setup steps
+## Checks
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+```bash
+npm run typecheck   # TypeScript
+npm run lint        # ESLint
+npm test            # unit tests for the pure logic (join codes, dates)
+npm run test:db     # schema and access-rule tests against a throwaway local Postgres
+```
 
-## Learn more
+`test:db` needs the Postgres server binaries installed (`initdb`, `pg_ctl`). It
+does not need Docker or a Supabase project.
 
-To learn more about developing your project with Expo, look at the following resources:
+## How it is put together
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+| Where | What |
+| --- | --- |
+| `src/app/` | Screens, one file per route (Expo Router) |
+| `src/components/ui.tsx` | The building blocks every screen is composed from |
+| `src/theme.ts` | Colour, type and spacing. The only place visual values live |
+| `src/lib/api.ts` | Every backend call |
+| `src/lib/queries.ts` | TanStack Query hooks over `api.ts`; screens use these |
+| `src/lib/dates.ts`, `join-code.ts`, `fast-types.ts` | Pure logic, unit tested |
+| `supabase/migrations/` | The database schema, access rules and default plan |
+| `supabase/tests/` | Access-rule tests |
 
-## Join the community
+### Decisions worth knowing
 
-Join our community of developers creating universal apps.
+- **No sign-up.** First launch creates an anonymous Supabase session. Sign in
+  with Apple will be linked later, only to restore data on a new phone.
+- **The database enforces access, not the app.** Row-level security limits
+  every table to the fast's leader and members. Creating and joining a fast go
+  through database functions (`create_fast`, `join_fast`) so a join code is the
+  only way in.
+- **Days are calendar days on the member's own phone.** Day 1 is the start
+  date wherever you are; dates are never converted through UTC.
+- **Minimal personal data.** A first name and a fast type. No body data, ever.
+- **Plain React Native styling with a single theme file**, rather than a UI
+  framework. The app is about fifteen screens of forms and lists, and a theme
+  file plus a handful of components keeps the native build simple.
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+## Setting up the backend
+
+1. Create a Supabase project.
+2. Enable anonymous sign-ins (Authentication → Sign In / Providers).
+3. Apply the migrations in `supabase/migrations/` in order (`supabase db push`,
+   or paste them into the SQL editor).
+4. Put the project URL and anon key in `.env`.
+
+## Content note
+
+The default 21-day plan in `supabase/migrations/20261114000100_default_plan.sql`
+uses real scripture references, but its prayer focuses and devotionals are
+placeholder drafts. They need a pastor's review before launch.
