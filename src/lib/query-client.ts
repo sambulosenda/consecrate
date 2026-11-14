@@ -61,6 +61,12 @@ export type CheckInInput = {
   checkedIn: boolean;
 };
 
+/** True while a check-in other than the one now finishing is sent or queued. */
+function otherCheckInsPending(): boolean {
+  // The one finishing still counts as pending inside its own callbacks.
+  return queryClient.isMutating({ mutationKey: CHECK_IN_MUTATION }) > 1;
+}
+
 // Defined here, on the client, rather than in a component: a check-in saved
 // while offline may be sent after a restart, when no screen is mounted to
 // supply the function.
@@ -85,13 +91,21 @@ queryClient.setMutationDefaults(CHECK_IN_MUTATION, {
     return { previous };
   },
   onError: (_error, input: CheckInInput, context) => {
+    // A later tap is still waiting to be sent: what the screen shows already
+    // reflects it, so an older snapshot must not be put back over it.
+    if (otherCheckInsPending()) return;
     const previous = (context as { previous?: number[] } | undefined)?.previous;
     queryClient.setQueryData(keys.checkedDays(input.memberId), previous);
   },
-  onSettled: (_data, _error, input: CheckInInput) =>
-    Promise.all([
+  onSettled: (_data, _error, input: CheckInInput) => {
+    // Likewise, do not refetch between queued taps: the server would answer
+    // with a state the next request is about to change, and the button would
+    // flick back. The last one to settle refetches.
+    if (otherCheckInsPending()) return;
+    return Promise.all([
       queryClient.invalidateQueries({ queryKey: keys.checkedDays(input.memberId) }),
       queryClient.invalidateQueries({ queryKey: keys.group(input.fastId, input.dayNumber) }),
       queryClient.invalidateQueries({ queryKey: keys.checkInCounts(input.fastId) }),
-    ]),
+    ]);
+  },
 });
