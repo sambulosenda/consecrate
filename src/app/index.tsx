@@ -18,6 +18,14 @@ export default function Welcome() {
   const [code, setCode] = useState('');
   const preview = useFastPreview(code);
 
+  if (myFasts.isPending && myFasts.fetchStatus === 'paused') {
+    return (
+      <Screen>
+        <T variant="display">You are offline</T>
+        <T variant="bodyMuted">Connect to the internet to join or create a fast.</T>
+      </Screen>
+    );
+  }
   if (myFasts.isPending) return <CenteredSpinner />;
 
   const current = myFasts.data?.[0];

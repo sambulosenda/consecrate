@@ -17,6 +17,7 @@ import { describeError } from '@/lib/api';
 import { FAST_TYPES, fastTypeInfo, type FastType } from '@/lib/fast-types';
 import { normalizeJoinCode } from '@/lib/join-code';
 import { useFastPreview, useJoinFast } from '@/lib/queries';
+import { requestReminderPermission } from '@/lib/reminders';
 
 /**
  * Joining, in at most three short steps: who you are and how you will fast,
@@ -71,8 +72,11 @@ export default function Join() {
 
   const fast = preview.data;
 
-  const submit = (time: string | null) => {
+  const submit = async (time: string | null) => {
     if (!fastType) return;
+    // Ask for notification permission at the moment it makes sense: right
+    // after choosing a reminder time. Declining still joins the fast.
+    if (time) await requestReminderPermission().catch(() => false);
     join.mutate(
       { code, firstName: firstName.trim(), fastType, reminderTime: time },
       { onSuccess: (member) => router.replace(`/fast/${member.fast_id}`) },

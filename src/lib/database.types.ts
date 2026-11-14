@@ -100,6 +100,10 @@ export type Database = {
         };
         Returns: MemberRow;
       };
+      fast_check_in_counts: {
+        Args: { p_fast_id: string };
+        Returns: { day_number: number; check_ins: number }[];
+      };
       create_fast: {
         Args: {
           p_name: string;

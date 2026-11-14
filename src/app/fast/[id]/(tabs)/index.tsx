@@ -1,11 +1,14 @@
 import { Redirect, router, useLocalSearchParams } from 'expo-router';
+import { useEffect } from 'react';
 
 import { Button, Card, CenteredSpinner, ErrorNote, Screen, Stack, T } from '@/components/ui';
 import { describeError } from '@/lib/api';
 import { formatLongDate } from '@/lib/dates';
 import { confirmTap } from '@/lib/haptics';
 import { memberProgress, progressMessage } from '@/lib/progress';
-import { useCheckedDays, useFastDay, useSetCheckedIn } from '@/lib/queries';
+import { useCheckedDays, useFastDay, useFastDays, useSetCheckedIn } from '@/lib/queries';
+import { planReminders } from '@/lib/reminder-plan';
+import { syncReminders } from '@/lib/reminders';
 import { useFast } from '@/lib/use-fast';
 
 /** Today: the day's scripture, prayer focus and devotional, and one check-in button. */
@@ -13,6 +16,23 @@ export default function Today() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { query, fast, member, isLeader, today, progress, dayNumber } = useFast(id);
   const day = useFastDay(id, dayNumber);
+  const days = useFastDays(id);
+
+  // Keep the phone's scheduled reminders in step with the plan: this picks up
+  // a leader's edits to a day and a change of reminder time.
+  const reminderTime = member?.reminder_time ?? null;
+  useEffect(() => {
+    if (!fast || !days.data) return;
+    const plan = planReminders({
+      fastName: fast.name,
+      startDate: fast.start_date,
+      lengthDays: fast.length_days,
+      days: days.data,
+      reminderTime,
+      now: new Date(),
+    });
+    syncReminders(plan).catch(() => {});
+  }, [fast, days.data, reminderTime]);
 
   if (query.isPending) return <CenteredSpinner />;
   if (query.isError) {
@@ -117,7 +137,7 @@ function CheckIn({
   dayNumber: number;
 }) {
   const checkedDays = useCheckedDays(memberId);
-  const setCheckedIn = useSetCheckedIn(fastId, memberId);
+  const setCheckedIn = useSetCheckedIn();
 
   if (!checkedDays.data) {
     return checkedDays.isError ? <ErrorNote message={describeError(checkedDays.error)} /> : null;
@@ -132,11 +152,15 @@ function CheckIn({
         label={mine.checkedInToday ? '✓ Checked in today' : 'Check in for today'}
         onPress={() => {
           if (!mine.checkedInToday) confirmTap();
-          setCheckedIn.mutate({ dayNumber, checkedIn: !mine.checkedInToday });
+          setCheckedIn.mutate({ fastId, memberId, dayNumber, checkedIn: !mine.checkedInToday });
         }}
       />
       <T variant="small" style={{ textAlign: 'center' }} accessibilityLiveRegion="polite">
-        {mine.checkedInToday ? `${progressMessage(mine)} · tap to undo` : progressMessage(mine)}
+        {setCheckedIn.isPaused
+          ? 'Saved on this phone. It will sync when you are back online.'
+          : mine.checkedInToday
+            ? `${progressMessage(mine)} · tap to undo`
+            : progressMessage(mine)}
       </T>
     </Stack>
   );

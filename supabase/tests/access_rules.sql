@@ -131,6 +131,7 @@ begin
   assert (select count(*) from public.check_ins) = 1, 'leader should see check-ins';
   update public.fast_days set prayer_focus = 'Pray for our city.' where fast_id = v_fast and day_number = 1;
   assert (select prayer_focus from public.fast_days where fast_id = v_fast and day_number = 1) = 'Pray for our city.', 'leader should be able to edit a day';
+  assert (select check_ins from public.fast_check_in_counts(v_fast) where day_number = 1) = 1, 'leader should get check-in counts per day';
   begin
     update public.fasts set join_code = 'AAAAAA' where id = v_fast;
     raise exception 'join code must not be editable';
@@ -144,6 +145,7 @@ do $$
 begin
   assert (select count(*) from public.members) = 0, 'outsider should still see no members';
   assert (select count(*) from public.check_ins) = 0, 'outsider should see no check-ins';
+  assert (select count(*) from public.fast_check_in_counts((select v::uuid from test_ctx where k = 'fast_id'))) = 0, 'outsider should get no check-in counts';
 end $$;
 
 -- Signed-out callers get nothing at all.

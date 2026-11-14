@@ -50,6 +50,11 @@ does not need Docker or a Supabase project.
   every table to the fast's leader and members. Creating and joining a fast go
   through database functions (`create_fast`, `join_fast`) so a join code is the
   only way in.
+- **Works without signal.** Fetched data is kept on the device, and a check-in
+  made offline is queued and sent on reconnect, even across a restart
+  (`src/lib/query-client.ts`).
+- **Reminders are local.** The phone schedules one notification per remaining
+  day, carrying that day's scripture and prayer focus. No push server.
 - **Days are calendar days on the member's own phone.** Day 1 is the start
   date wherever you are; dates are never converted through UTC.
 - **Minimal personal data.** A first name and a fast type. No body data, ever.

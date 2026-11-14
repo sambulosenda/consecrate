@@ -209,6 +209,16 @@ export async function listGroup(fastId: string, dayNumber: number): Promise<Grou
   }));
 }
 
+export type DayCount = { dayNumber: number; checkIns: number };
+
+/** How many members checked in on each day that has at least one check-in. */
+export async function listCheckInCounts(fastId: string): Promise<DayCount[]> {
+  await ensureSession();
+  const { data, error } = await supabase().rpc('fast_check_in_counts', { p_fast_id: fastId });
+  if (error) throw error;
+  return data.map((row) => ({ dayNumber: row.day_number, checkIns: Number(row.check_ins) }));
+}
+
 /** A sentence a person can act on, whatever went wrong underneath. */
 export function describeError(error: unknown): string {
   const message =

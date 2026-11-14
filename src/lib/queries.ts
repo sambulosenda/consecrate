@@ -1,33 +1,25 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import {
-  checkIn,
   countMembers,
   createFast,
   getFastDay,
   getMyFast,
   joinFast,
   listCheckedDays,
+  listCheckInCounts,
   listFastDays,
   listGroup,
   listMyFasts,
   previewFast,
-  undoCheckIn,
   updateFastDay,
   type FastDayContent,
 } from './api';
 import { isValidJoinCode } from './join-code';
+import { CHECK_IN_MUTATION, keys, type CheckInInput } from './query-client';
 
-export const keys = {
-  myFasts: ['my-fasts'] as const,
-  myFast: (fastId: string) => ['my-fasts', fastId] as const,
-  preview: (code: string) => ['fast-preview', code] as const,
-  day: (fastId: string, dayNumber: number) => ['fast-day', fastId, dayNumber] as const,
-  memberCount: (fastId: string) => ['member-count', fastId] as const,
-  days: (fastId: string) => ['fast-days', fastId] as const,
-  checkedDays: (memberId: string) => ['checked-days', memberId] as const,
-  group: (fastId: string, dayNumber: number) => ['group', fastId, dayNumber] as const,
-};
+export { keys };
+
 
 export function useMyFasts() {
   return useQuery({ queryKey: keys.myFasts, queryFn: listMyFasts });
@@ -102,34 +94,18 @@ export function useCheckedDays(memberId: string | null) {
 }
 
 /**
- * Check in (or undo) for a day. The button responds at once: the cached list
- * of checked days is updated before the server answers and rolled back if the
- * request fails.
+ * Check in (or undo) for a day. The behaviour (instant update, offline queue,
+ * rollback on failure) is defined once in query-client.ts.
  */
-export function useSetCheckedIn(fastId: string, memberId: string) {
-  const client = useQueryClient();
-  const key = keys.checkedDays(memberId);
-  return useMutation({
-    mutationFn: (input: { dayNumber: number; checkedIn: boolean }) =>
-      input.checkedIn ? checkIn(memberId, input.dayNumber) : undoCheckIn(memberId, input.dayNumber),
-    onMutate: async ({ dayNumber, checkedIn }) => {
-      await client.cancelQueries({ queryKey: key });
-      const previous = client.getQueryData<number[]>(key);
-      client.setQueryData<number[]>(key, (days = []) =>
-        checkedIn
-          ? [...new Set([...days, dayNumber])].sort((a, b) => a - b)
-          : days.filter((d) => d !== dayNumber),
-      );
-      return { previous };
-    },
-    onError: (_error, _input, context) => {
-      if (context) client.setQueryData(key, context.previous);
-    },
-    onSettled: (_data, _error, { dayNumber }) =>
-      Promise.all([
-        client.invalidateQueries({ queryKey: key }),
-        client.invalidateQueries({ queryKey: keys.group(fastId, dayNumber) }),
-      ]),
+export function useSetCheckedIn() {
+  return useMutation<unknown, Error, CheckInInput>({ mutationKey: CHECK_IN_MUTATION });
+}
+
+export function useCheckInCounts(fastId: string, enabled: boolean) {
+  return useQuery({
+    queryKey: keys.checkInCounts(fastId),
+    queryFn: () => listCheckInCounts(fastId),
+    enabled,
   });
 }
 

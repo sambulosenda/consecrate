@@ -1,25 +1,20 @@
 import { Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold } from '@expo-google-fonts/inter';
 import { Newsreader_400Regular, Newsreader_500Medium } from '@expo-google-fonts/newsreader';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
 import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 
 import { SetupNeeded } from '@/components/setup-needed';
+import { CACHE_MAX_AGE, persister, queryClient } from '@/lib/query-client';
 import { isSupabaseConfigured } from '@/lib/supabase';
 import { colors } from '@/theme';
 
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
-  const [queryClient] = useState(
-    () =>
-      new QueryClient({
-        defaultOptions: { queries: { staleTime: 30_000, retry: 1 } },
-      }),
-  );
   const [fontsLoaded, fontError] = useFonts({
     Inter_400Regular,
     Inter_500Medium,
@@ -38,7 +33,13 @@ export default function RootLayout() {
   if (!ready) return null;
 
   return (
-    <QueryClientProvider client={queryClient}>
+    <PersistQueryClientProvider
+      client={queryClient}
+      persistOptions={{ persister, maxAge: CACHE_MAX_AGE }}
+      // Send anything saved while offline, then refresh what is on screen.
+      onSuccess={() =>
+        queryClient.resumePausedMutations().then(() => queryClient.invalidateQueries())
+      }>
       <StatusBar style="dark" />
       {isSupabaseConfigured ? (
         // The native stack: system transitions, back swipe and back button.
@@ -57,6 +58,6 @@ export default function RootLayout() {
       ) : (
         <SetupNeeded />
       )}
-    </QueryClientProvider>
+    </PersistQueryClientProvider>
   );
 }

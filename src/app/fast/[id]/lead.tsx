@@ -4,7 +4,7 @@ import { Pressable, Share, StyleSheet, View } from 'react-native';
 import { Button, Card, CenteredSpinner, ErrorNote, Screen, Stack, T } from '@/components/ui';
 import { describeError } from '@/lib/api';
 import { addDays, formatLongDate } from '@/lib/dates';
-import { useFastDays, useMemberCount } from '@/lib/queries';
+import { useCheckInCounts, useFastDays, useMemberCount } from '@/lib/queries';
 import { useFast } from '@/lib/use-fast';
 import { colors, fonts, space } from '@/theme';
 
@@ -14,6 +14,7 @@ export default function Lead() {
   const { query, fast, isLeader, dayNumber } = useFast(id);
   const memberCount = useMemberCount(id, isLeader);
   const days = useFastDays(id);
+  const counts = useCheckInCounts(id, isLeader);
 
   if (query.isPending) return <CenteredSpinner />;
   if (!fast) return <Redirect href="/" />;
@@ -49,6 +50,41 @@ export default function Lead() {
         <Button label="Share the code" onPress={share} />
       </Card>
 
+      {dayNumber && counts.data ? (
+        <Card>
+          <T variant="eyebrow">Check-ins each day</T>
+          {Array.from({ length: dayNumber }, (_, i) => i + 1).map((n) => {
+            const checkIns = counts.data.find((c) => c.dayNumber === n)?.checkIns ?? 0;
+            const joined = memberCount.data ?? 0;
+            const share = joined > 0 ? Math.min(checkIns / joined, 1) : 0;
+            return (
+              <View
+                key={n}
+                style={styles.barRow}
+                accessible
+                accessibilityLabel={`Day ${n}: ${checkIns} of ${joined} checked in${n === dayNumber ? ' so far' : ''}`}>
+                <T variant="small" style={{ width: 56, color: colors.ink }}>
+                  Day {n}
+                </T>
+                <View style={styles.track}>
+                  <View
+                    style={[
+                      styles.fill,
+                      { width: `${Math.round(share * 100)}%` },
+                      n === dayNumber && { backgroundColor: '#6E9C8C' },
+                    ]}
+                  />
+                </View>
+                <T variant="label" style={{ width: 32, textAlign: 'right' }}>
+                  {checkIns}
+                </T>
+              </View>
+            );
+          })}
+          <T variant="small">Day {dayNumber} is still in progress.</T>
+        </Card>
+      ) : null}
+
       <Stack gap="xs">
         <T variant="eyebrow">Daily plan</T>
         <T variant="small">Tap a day to edit its scripture, prayer focus and devotional.</T>
@@ -82,6 +118,9 @@ export default function Lead() {
 }
 
 const styles = StyleSheet.create({
+  barRow: { flexDirection: 'row', alignItems: 'center', gap: space.md, minHeight: 28 },
+  track: { flex: 1, height: 16, borderRadius: 8, backgroundColor: colors.accentTint, overflow: 'hidden' },
+  fill: { height: 16, borderRadius: 8, backgroundColor: colors.accent },
   row: {
     minHeight: 64,
     flexDirection: 'row',
