@@ -61,10 +61,20 @@ export type CheckInInput = {
   checkedIn: boolean;
 };
 
-/** True while a check-in other than the one now finishing is sent or queued. */
-function otherCheckInsPending(): boolean {
+/**
+ * True while another check-in for the same member is being sent or is queued.
+ * Scoped to the member because that is whose list on screen is at stake; a
+ * person in two fasts has a separate member, and a separate list, in each.
+ */
+function otherCheckInsPending(memberId: string): boolean {
   // The one finishing still counts as pending inside its own callbacks.
-  return queryClient.isMutating({ mutationKey: CHECK_IN_MUTATION }) > 1;
+  return (
+    queryClient.isMutating({
+      mutationKey: CHECK_IN_MUTATION,
+      predicate: (mutation) =>
+        (mutation.state.variables as CheckInInput | undefined)?.memberId === memberId,
+    }) > 1
+  );
 }
 
 // Defined here, on the client, rather than in a component: a check-in saved
@@ -93,7 +103,7 @@ queryClient.setMutationDefaults(CHECK_IN_MUTATION, {
   onError: (_error, input: CheckInInput, context) => {
     // A later tap is still waiting to be sent: what the screen shows already
     // reflects it, so an older snapshot must not be put back over it.
-    if (otherCheckInsPending()) return;
+    if (otherCheckInsPending(input.memberId)) return;
     const previous = (context as { previous?: number[] } | undefined)?.previous;
     queryClient.setQueryData(keys.checkedDays(input.memberId), previous);
   },
@@ -101,7 +111,7 @@ queryClient.setMutationDefaults(CHECK_IN_MUTATION, {
     // Likewise, do not refetch between queued taps: the server would answer
     // with a state the next request is about to change, and the button would
     // flick back. The last one to settle refetches.
-    if (otherCheckInsPending()) return;
+    if (otherCheckInsPending(input.memberId)) return;
     return Promise.all([
       queryClient.invalidateQueries({ queryKey: keys.checkedDays(input.memberId) }),
       queryClient.invalidateQueries({ queryKey: keys.group(input.fastId, input.dayNumber) }),

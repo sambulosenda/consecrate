@@ -10,9 +10,9 @@ vi.mock('@react-native-async-storage/async-storage', () => ({ default: {} }));
 vi.mock('expo-network', () => ({ addNetworkStateListener: () => ({ remove() {} }) }));
 vi.mock('./api', () => ({ checkIn: vi.fn(), undoCheckIn: vi.fn() }));
 
-const input = (checkedIn: boolean): CheckInInput => ({
+const input = (checkedIn: boolean, memberId = 'm1'): CheckInInput => ({
   fastId: 'f1',
-  memberId: 'm1',
+  memberId,
   dayNumber: 4,
   checkedIn,
 });
@@ -27,12 +27,12 @@ function deferred() {
   return { promise, resolve, reject };
 }
 
-const tap = (checkedIn: boolean) =>
+const tap = (checkedIn: boolean, memberId?: string) =>
   new MutationObserver<unknown, Error, CheckInInput>(queryClient, {
     mutationKey: CHECK_IN_MUTATION,
     retry: false,
   })
-    .mutate(input(checkedIn))
+    .mutate(input(checkedIn, memberId))
     .catch(() => undefined);
 
 const shown = () => queryClient.getQueryData<number[]>(keys.checkedDays('m1'));
@@ -122,6 +122,25 @@ describe('check-in taps in quick succession', () => {
     await Promise.all([b, c]);
     await tick();
     expect(shown()).toEqual([4]);
+  });
+
+  it('still puts the screen back when the queued tap is for another fast', async () => {
+    const first = deferred();
+    vi.mocked(checkIn).mockImplementationOnce(() => first.promise);
+    vi.mocked(checkIn).mockResolvedValue(undefined);
+
+    const a = tap(true);
+    await tick();
+    const other = tap(true, 'm2'); // the same person's member in a second fast
+    await tick();
+    expect(shown()).toEqual([4]);
+
+    first.reject(new Error('refused'));
+    await a;
+    await tick();
+    expect(shown()).toEqual([]);
+    expect(fetches).toBe(1);
+    await other;
   });
 
   it('puts the screen back when a lone request fails', async () => {
