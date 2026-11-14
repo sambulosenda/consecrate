@@ -1,9 +1,10 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
 
+import { DateField } from '@/components/date-field';
 import { Button, Choice, ChoiceGroup, ErrorNote, Field, Screen, Stack, T } from '@/components/ui';
 import { describeError } from '@/lib/api';
-import { formatLongDate, localToday, parseDayMonthYear } from '@/lib/dates';
+import { localToday, type IsoDate } from '@/lib/dates';
 import { FAST_LENGTHS, type FastLength } from '@/lib/fast-types';
 import { useCreateFast } from '@/lib/queries';
 
@@ -12,20 +13,19 @@ export default function CreateFast() {
   const create = useCreateFast();
   const [name, setName] = useState('');
   const [churchName, setChurchName] = useState('');
-  const [startInput, setStartInput] = useState('');
+  const [startDate, setStartDate] = useState<IsoDate | null>(null);
   const [lengthDays, setLengthDays] = useState<FastLength>(21);
   const [welcome, setWelcome] = useState('');
   const [showErrors, setShowErrors] = useState(false);
 
-  const startDate = parseDayMonthYear(startInput);
-  const startInPast = startDate !== null && startDate < localToday();
+  const today = localToday();
 
   const errors = {
     name: name.trim() ? null : 'Give the fast a name.',
     churchName: churchName.trim() ? null : "Add your church's name.",
     start: !startDate
-      ? 'Enter the date as day/month/year, for example 4/1/2027.'
-      : startInPast
+      ? 'Choose the day the fast starts.'
+      : startDate < today
         ? 'Choose today or a later date.'
         : null,
   };
@@ -52,7 +52,6 @@ export default function CreateFast() {
         <>
           <ErrorNote message={create.isError ? describeError(create.error) : null} />
           <Button label="Create fast" busy={create.isPending} onPress={submit} />
-          <Button kind="quiet" label="Back" disabled={create.isPending} onPress={() => router.back()} />
         </>
       }>
       <T variant="display">Create your church&apos;s fast</T>
@@ -73,14 +72,11 @@ export default function CreateFast() {
         maxLength={80}
         error={showErrors ? errors.churchName : null}
       />
-      <Field
+      <DateField
         label="Start date"
-        value={startInput}
-        onChangeText={setStartInput}
-        placeholder="DD/MM/YYYY"
-        keyboardType="numbers-and-punctuation"
-        autoCorrect={false}
-        hint={startDate && !startInPast ? formatLongDate(startDate, { year: true }) : undefined}
+        value={startDate}
+        onChange={setStartDate}
+        minimum={today}
         error={showErrors ? errors.start : null}
       />
       <Stack gap="sm">

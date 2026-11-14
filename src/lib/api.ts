@@ -111,6 +111,104 @@ export async function countMembers(fastId: string): Promise<number> {
   return count ?? 0;
 }
 
+export async function listFastDays(fastId: string): Promise<FastDay[]> {
+  await ensureSession();
+  const { data, error } = await supabase()
+    .from('fast_days')
+    .select('*')
+    .eq('fast_id', fastId)
+    .order('day_number');
+  if (error) throw error;
+  return data;
+}
+
+export type FastDayContent = Pick<FastDay, 'scripture_ref' | 'prayer_focus' | 'devotional'>;
+
+/** Leader only; the database rejects anyone else. */
+export async function updateFastDay(
+  fastId: string,
+  dayNumber: number,
+  content: FastDayContent,
+): Promise<FastDay> {
+  await ensureSession();
+  const { data, error } = await supabase()
+    .from('fast_days')
+    .update({ ...content, updated_at: new Date().toISOString() })
+    .eq('fast_id', fastId)
+    .eq('day_number', dayNumber)
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+/** The day numbers this member has checked in on. */
+export async function listCheckedDays(memberId: string): Promise<number[]> {
+  await ensureSession();
+  const { data, error } = await supabase()
+    .from('check_ins')
+    .select('day_number')
+    .eq('member_id', memberId)
+    .order('day_number');
+  if (error) throw error;
+  return data.map((row) => row.day_number);
+}
+
+/** Safe to repeat: checking in twice for a day is a no-op. */
+export async function checkIn(memberId: string, dayNumber: number): Promise<void> {
+  await ensureSession();
+  const { error } = await supabase()
+    .from('check_ins')
+    .upsert(
+      { member_id: memberId, day_number: dayNumber },
+      { onConflict: 'member_id,day_number', ignoreDuplicates: true },
+    );
+  if (error) throw error;
+}
+
+export async function undoCheckIn(memberId: string, dayNumber: number): Promise<void> {
+  await ensureSession();
+  const { error } = await supabase()
+    .from('check_ins')
+    .delete()
+    .eq('member_id', memberId)
+    .eq('day_number', dayNumber);
+  if (error) throw error;
+}
+
+export type GroupMember = {
+  id: string;
+  firstName: string;
+  /** When they checked in for the day asked about, or null if not yet. */
+  checkedInAt: string | null;
+};
+
+/** Everyone in the fast, with whether they have checked in on the given day. */
+export async function listGroup(fastId: string, dayNumber: number): Promise<GroupMember[]> {
+  await ensureSession();
+  const members = await supabase()
+    .from('members')
+    .select('id, first_name')
+    .eq('fast_id', fastId)
+    .order('first_name');
+  if (members.error) throw members.error;
+  if (members.data.length === 0) return [];
+
+  const checkIns = await supabase()
+    .from('check_ins')
+    .select('member_id, checked_in_at')
+    .eq('day_number', dayNumber)
+    .in('member_id', members.data.map((m) => m.id));
+  if (checkIns.error) throw checkIns.error;
+
+  const timeByMember = new Map(checkIns.data.map((c) => [c.member_id, c.checked_in_at]));
+  return members.data.map((m) => ({
+    id: m.id,
+    firstName: m.first_name,
+    checkedInAt: timeByMember.get(m.id) ?? null,
+  }));
+}
+
 /** A sentence a person can act on, whatever went wrong underneath. */
 export function describeError(error: unknown): string {
   const message =

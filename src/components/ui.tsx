@@ -29,21 +29,29 @@ type ScreenProps = {
   children: ReactNode;
   /** Pinned below the scrolling content, e.g. the primary action. */
   footer?: ReactNode;
+  /**
+   * Set on screens that sit inside the tab bar. The system insets the scroll
+   * view for the bar, so the footer scrolls with the content (pushed to the
+   * bottom) instead of being pinned underneath it.
+   */
+  inTabs?: boolean;
 };
 
-export function Screen({ children, footer }: ScreenProps) {
+export function Screen({ children, footer, inTabs }: ScreenProps) {
   return (
-    <SafeAreaView style={styles.screen}>
+    <SafeAreaView style={styles.screen} edges={inTabs ? ['top', 'left', 'right'] : undefined}>
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView
           contentContainerStyle={styles.screenContent}
           keyboardShouldPersistTaps="handled"
+          contentInsetAdjustmentBehavior={inTabs ? 'automatic' : undefined}
           showsVerticalScrollIndicator={false}>
           {children}
+          {inTabs && footer ? <View style={styles.inlineFooter}>{footer}</View> : null}
         </ScrollView>
-        {footer ? <View style={styles.footer}>{footer}</View> : null}
+        {!inTabs && footer ? <View style={styles.footer}>{footer}</View> : null}
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -271,6 +279,7 @@ const styles = StyleSheet.create({
     maxWidth: 560,
     alignSelf: 'center',
   },
+  inlineFooter: { flexGrow: 1, justifyContent: 'flex-end', gap: space.md },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.ground },
   card: {
     backgroundColor: colors.surface,

@@ -53,9 +53,15 @@ does not need Docker or a Supabase project.
 - **Days are calendar days on the member's own phone.** Day 1 is the start
   date wherever you are; dates are never converted through UTC.
 - **Minimal personal data.** A first name and a fast type. No body data, ever.
-- **Plain React Native styling with a single theme file**, rather than a UI
-  framework. The app is about fifteen screens of forms and lists, and a theme
-  file plus a handful of components keeps the native build simple.
+- **Native controls wherever the platform has one.** The tab bar is
+  `NativeTabs`, navigation is the native stack, the start date uses the system
+  date picker, sharing uses the system share sheet and check-in gives a haptic
+  tap. Only the content inside a screen is styled by us.
+- **Plain React Native styling with a single theme file** for that content,
+  rather than a UI framework. The app is about fifteen screens of forms and
+  lists, and a theme file plus a handful of components keeps the build simple.
+- **Calm, not gamified.** Progress is "days completed"; a missed day says
+  "Pick it back up today"; the group view never lists who has not checked in.
 
 ## Setting up the backend
 

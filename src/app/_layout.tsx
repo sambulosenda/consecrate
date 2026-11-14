@@ -41,12 +41,19 @@ export default function RootLayout() {
     <QueryClientProvider client={queryClient}>
       <StatusBar style="dark" />
       {isSupabaseConfigured ? (
+        // The native stack: system transitions, back swipe and back button.
         <Stack
           screenOptions={{
-            headerShown: false,
+            title: '',
+            headerBackButtonDisplayMode: 'minimal',
+            headerShadowVisible: false,
+            headerTintColor: colors.accent,
+            headerStyle: { backgroundColor: colors.ground },
             contentStyle: { backgroundColor: colors.ground },
-          }}
-        />
+          }}>
+          <Stack.Screen name="index" options={{ headerShown: false }} />
+          <Stack.Screen name="fast/[id]/(tabs)" options={{ headerShown: false }} />
+        </Stack>
       ) : (
         <SetupNeeded />
       )}

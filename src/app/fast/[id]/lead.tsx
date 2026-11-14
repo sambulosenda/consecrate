@@ -1,0 +1,94 @@
+import { Redirect, router, useLocalSearchParams } from 'expo-router';
+import { Pressable, Share, StyleSheet, View } from 'react-native';
+
+import { Button, Card, CenteredSpinner, ErrorNote, Screen, Stack, T } from '@/components/ui';
+import { describeError } from '@/lib/api';
+import { addDays, formatLongDate } from '@/lib/dates';
+import { useFastDays, useMemberCount } from '@/lib/queries';
+import { useFast } from '@/lib/use-fast';
+import { colors, fonts, space } from '@/theme';
+
+/** The leader's screen: the join code to share and the daily plan to edit. */
+export default function Lead() {
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const { query, fast, isLeader, dayNumber } = useFast(id);
+  const memberCount = useMemberCount(id, isLeader);
+  const days = useFastDays(id);
+
+  if (query.isPending) return <CenteredSpinner />;
+  if (!fast) return <Redirect href="/" />;
+  if (!isLeader) return <Redirect href={`/fast/${id}`} />;
+
+  const share = () =>
+    Share.share({
+      message: `Join ${fast.name} on Consecrate with the code ${fast.join_code}, or tap consecrate://join/${fast.join_code}`,
+    });
+
+  return (
+    <Screen>
+      <Stack gap="xs">
+        <T variant="small">Leader · {fast.church_name}</T>
+        <T variant="display">{fast.name}</T>
+      </Stack>
+
+      <Card>
+        <T variant="small">Join code</T>
+        <T
+          style={{ fontFamily: fonts.sansBold, fontSize: 28, lineHeight: 36, letterSpacing: 5 }}
+          accessibilityLabel={`Join code ${fast.join_code.split('').join(' ')}`}
+          selectable>
+          {fast.join_code}
+        </T>
+        <T variant="small">
+          {memberCount.data === undefined
+            ? ' '
+            : memberCount.data === 1
+              ? '1 member has joined'
+              : `${memberCount.data} members have joined`}
+        </T>
+        <Button label="Share the code" onPress={share} />
+      </Card>
+
+      <Stack gap="xs">
+        <T variant="eyebrow">Daily plan</T>
+        <T variant="small">Tap a day to edit its scripture, prayer focus and devotional.</T>
+        {days.isPending ? <CenteredSpinner /> : null}
+        <ErrorNote message={days.isError ? describeError(days.error) : null} />
+        {days.data?.map((day) => (
+          <Pressable
+            key={day.day_number}
+            accessibilityRole="button"
+            accessibilityLabel={`Edit day ${day.day_number}, ${day.scripture_ref || 'no scripture yet'}`}
+            onPress={() => router.push(`/fast/${id}/day/${day.day_number}`)}
+            style={({ pressed }) => [styles.row, pressed && { backgroundColor: colors.accentTint }]}>
+            <View style={{ flex: 1 }}>
+              <T variant="bodyLarge">
+                Day {day.day_number}
+                {day.day_number === dayNumber ? ' · today' : ''}
+              </T>
+              <T variant="small">
+                {formatLongDate(addDays(fast.start_date, day.day_number - 1))} ·{' '}
+                {day.scripture_ref || 'No scripture yet'}
+              </T>
+            </View>
+            <T variant="bodyMuted" importantForAccessibility="no">
+              ›
+            </T>
+          </Pressable>
+        ))}
+      </Stack>
+    </Screen>
+  );
+}
+
+const styles = StyleSheet.create({
+  row: {
+    minHeight: 64,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.md,
+    paddingVertical: space.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.line,
+  },
+});

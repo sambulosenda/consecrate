@@ -78,6 +78,12 @@ begin
   assert (select count(*) from public.fast_days) = 21, 'member should see the 21 days of their fast';
 
   insert into public.check_ins (member_id, day_number) values (m.id, 1);
+  insert into public.check_ins (member_id, day_number) values (m.id, 1)
+    on conflict (member_id, day_number) do nothing;
+  assert (select count(*) from public.check_ins where member_id = m.id) = 1, 'a repeated check-in should be a no-op';
+  insert into public.check_ins (member_id, day_number) values (m.id, 2);
+  delete from public.check_ins where member_id = m.id and day_number = 2;
+  assert (select count(*) from public.check_ins where member_id = m.id) = 1, 'a member should be able to undo their own check-in';
   begin
     insert into public.check_ins (member_id, day_number) values (m.id, 22);
     raise exception 'checking in beyond the fast length should be denied';
