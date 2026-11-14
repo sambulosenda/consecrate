@@ -201,7 +201,7 @@ export function Choice({ title, description, selected, onPress, compact }: Choic
   return (
     <Pressable
       accessibilityRole="radio"
-      accessibilityState={{ selected }}
+      accessibilityState={{ checked: selected }}
       accessibilityLabel={description ? `${title}. ${description}` : title}
       onPress={onPress}
       style={({ pressed }) => [

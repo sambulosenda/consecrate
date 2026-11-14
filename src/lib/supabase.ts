@@ -34,6 +34,10 @@ let pendingSession: Promise<string> | null = null;
  * Makes sure this device has a session and returns the user id. First launch
  * creates an anonymous user, which is what keeps joining under a minute;
  * Sign in with Apple is linked later only to restore data on a new phone.
+ *
+ * Callers that overlap share one attempt, so two anonymous users are never
+ * created. Nothing is remembered after that: each later call reads the
+ * current session, so a sign-out or account change is picked up.
  */
 export function ensureSession(): Promise<string> {
   pendingSession ??= (async () => {
@@ -46,9 +50,8 @@ export function ensureSession(): Promise<string> {
     if (created.error) throw created.error;
     if (!created.data.user) throw new Error('Anonymous sign-in returned no user.');
     return created.data.user.id;
-  })().catch((error) => {
-    pendingSession = null; // let the next call retry
-    throw error;
+  })().finally(() => {
+    pendingSession = null;
   });
   return pendingSession;
 }

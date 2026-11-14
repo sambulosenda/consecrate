@@ -70,6 +70,9 @@ queryClient.setMutationDefaults(CHECK_IN_MUTATION, {
       ? checkIn(input.memberId, input.dayNumber)
       : undoCheckIn(input.memberId, input.dayNumber),
   retry: 2,
+  // One at a time, in the order they were tapped: a quick check-in then undo
+  // must reach the server in that order, or the last tap could lose.
+  scope: { id: 'check-in' },
   onMutate: async (input: CheckInInput) => {
     const key = keys.checkedDays(input.memberId);
     await queryClient.cancelQueries({ queryKey: key });

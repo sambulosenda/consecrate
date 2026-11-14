@@ -13,7 +13,7 @@ export default function CreateFast() {
   const create = useCreateFast();
   const [name, setName] = useState('');
   const [churchName, setChurchName] = useState('');
-  const [startDate, setStartDate] = useState<IsoDate | null>(null);
+  const [startDate, setStartDate] = useState<IsoDate | null>(() => localToday());
   const [lengthDays, setLengthDays] = useState<FastLength>(21);
   const [welcome, setWelcome] = useState('');
   const [showErrors, setShowErrors] = useState(false);

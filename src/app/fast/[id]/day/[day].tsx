@@ -95,6 +95,7 @@ function EditDayForm({
         label="Scripture reference"
         value={scriptureRef}
         onChangeText={setScriptureRef}
+        editable={!update.isPending}
         placeholder="Matthew 6:16–18"
         maxLength={120}
       />
@@ -103,6 +104,7 @@ function EditDayForm({
         multiline
         value={prayerFocus}
         onChangeText={setPrayerFocus}
+        editable={!update.isPending}
         maxLength={500}
       />
       <Field
@@ -110,6 +112,7 @@ function EditDayForm({
         multiline
         value={devotional}
         onChangeText={setDevotional}
+        editable={!update.isPending}
         maxLength={4000}
         hint="Members see changes straight away."
       />

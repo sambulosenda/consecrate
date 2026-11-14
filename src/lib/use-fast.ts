@@ -1,5 +1,6 @@
-import { fastProgress, localToday, type FastProgress, type IsoDate } from './dates';
+import { fastProgress, type FastProgress } from './dates';
 import { useMyFast } from './queries';
+import { useToday } from './use-today';
 
 /**
  * What every screen inside a fast needs: the fast, this device's role in it,
@@ -7,7 +8,7 @@ import { useMyFast } from './queries';
  */
 export function useFast(fastId: string) {
   const query = useMyFast(fastId);
-  const today: IsoDate = localToday();
+  const today = useToday();
   const fast = query.data?.fast ?? null;
   const progress: FastProgress | null = fast
     ? fastProgress(fast.start_date, fast.length_days, today)

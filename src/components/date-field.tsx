@@ -1,13 +1,15 @@
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { Text, View } from 'react-native';
+import { useState } from 'react';
+import { Platform, Pressable, Text, View } from 'react-native';
 
-import type { IsoDate } from '@/lib/dates';
-import { colors, space, type } from '@/theme';
+import { formatLongDate, type IsoDate } from '@/lib/dates';
+import { colors, radius, space, type } from '@/theme';
 
 export type DateFieldProps = {
   label: string;
   value: IsoDate | null;
-  onChange: (date: IsoDate) => void;
+  /** Null means the field no longer holds a usable date. */
+  onChange: (date: IsoDate | null) => void;
   /** Earliest date that can be picked. */
   minimum?: IsoDate;
   error?: string | null;
@@ -27,22 +29,55 @@ function toIso(date: Date): IsoDate {
 
 /** The system date picker. The web build uses date-field.web.tsx instead. */
 export function DateField({ label, value, onChange, minimum, error }: DateFieldProps) {
+  // Android's picker is a dialog that opens the moment it is mounted, so it
+  // is only mounted while the person is choosing. iOS shows a compact control
+  // that stays on the screen.
+  const [open, setOpen] = useState(false);
+  const shown = value ?? minimum ?? toIso(new Date());
+
+  const picker = (
+    <DateTimePicker
+      accessibilityLabel={label}
+      mode="date"
+      display={Platform.OS === 'ios' ? 'compact' : 'default'}
+      accentColor={colors.accent}
+      value={toDate(shown)}
+      minimumDate={minimum ? toDate(minimum) : undefined}
+      onValueChange={(_event, date) => {
+        setOpen(false);
+        onChange(toIso(date));
+      }}
+      onDismiss={() => setOpen(false)}
+    />
+  );
+
   return (
     <View style={{ gap: space.sm }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 48 }}>
         <Text style={type.label} maxFontSizeMultiplier={1.8}>
           {label}
         </Text>
-        <DateTimePicker
-          accessibilityLabel={label}
-          mode="date"
-          display="compact"
-          accentColor={colors.accent}
-          value={toDate(value ?? minimum ?? toIso(new Date()))}
-          minimumDate={minimum ? toDate(minimum) : undefined}
-          onValueChange={(_event, date) => onChange(toIso(date))}
-        />
+        {Platform.OS === 'ios' ? (
+          picker
+        ) : (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`${label}, ${formatLongDate(shown, { year: true })}`}
+            onPress={() => setOpen(true)}
+            style={{
+              minHeight: 48,
+              justifyContent: 'center',
+              paddingHorizontal: space.md,
+              borderRadius: radius.control,
+              backgroundColor: colors.accentTint,
+            }}>
+            <Text style={[type.body, { color: colors.accent }]}>
+              {formatLongDate(shown, { year: true })}
+            </Text>
+          </Pressable>
+        )}
       </View>
+      {Platform.OS !== 'ios' && open ? picker : null}
       {error ? <Text style={[type.small, { color: colors.danger }]}>{error}</Text> : null}
     </View>
   );
