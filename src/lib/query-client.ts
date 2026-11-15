@@ -21,6 +21,8 @@ import * as Network from 'expo-network';
 
 import { checkIn, undoCheckIn } from './api';
 
+const CHECK_IN_KEY = 'check-in';
+
 const WEEK = 7 * 24 * 60 * 60 * 1000;
 
 export const CACHE_MAX_AGE = WEEK;
@@ -43,13 +45,23 @@ const storage = createAsyncStoragePersister({
  * app was closed would be lost.
  */
 export function shouldPersistMutation(mutation: Mutation): boolean {
-  return defaultShouldDehydrateMutation(mutation) || mutation.state.status === 'pending';
+  return (
+    defaultShouldDehydrateMutation(mutation) ||
+    (mutation.state.status === 'pending' && isCheckIn(mutation.options.mutationKey))
+  );
+}
+
+// Only check-ins: they are safe to send twice, and their behaviour is defined
+// on the client (below), so a restored one knows how to run. Creating or
+// joining a fast is neither, and is simply retried by the person.
+function isCheckIn(mutationKey: readonly unknown[] | undefined): boolean {
+  return mutationKey?.[0] === CHECK_IN_KEY;
 }
 
 /**
- * Whatever was unfinished when it was saved is stored as waiting, so that the
- * next launch sends it again. Sending a check-in twice is harmless: the
- * server ignores a repeat.
+ * Whatever check-in was unfinished when it was saved is stored as waiting, so
+ * that the next launch sends it again. Sending a check-in twice is harmless:
+ * the server ignores a repeat.
  */
 export function asWaiting(client: PersistedClient): PersistedClient {
   return {
@@ -57,7 +69,9 @@ export function asWaiting(client: PersistedClient): PersistedClient {
     clientState: {
       ...client.clientState,
       mutations: client.clientState.mutations.map((m) =>
-        m.state.status === 'pending' ? { ...m, state: { ...m.state, isPaused: true } } : m,
+        m.state.status === 'pending' && isCheckIn(m.mutationKey)
+          ? { ...m, state: { ...m.state, isPaused: true } }
+          : m,
       ),
     },
   };
@@ -89,7 +103,7 @@ export const keys = {
   checkInCounts: (fastId: string) => ['check-in-counts', fastId] as const,
 };
 
-export const CHECK_IN_MUTATION = ['check-in'] as const;
+export const CHECK_IN_MUTATION = [CHECK_IN_KEY] as const;
 
 export type CheckInInput = {
   fastId: string;

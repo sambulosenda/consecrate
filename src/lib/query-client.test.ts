@@ -1,4 +1,4 @@
-import { dehydrate, MutationObserver, QueryObserver } from '@tanstack/react-query';
+import { dehydrate, hydrate, MutationObserver, QueryObserver } from '@tanstack/react-query';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { checkIn, undoCheckIn } from './api';
@@ -186,6 +186,49 @@ describe('a check-in that is being sent when the app closes', () => {
     await a;
     await tick();
     // Once the server has answered there is nothing left to resend.
+    expect(
+      dehydrate(queryClient, { shouldDehydrateMutation: shouldPersistMutation }).mutations,
+    ).toHaveLength(0);
+  });
+
+  it('is sent again, in order, when the saved state is restored', async () => {
+    const never = new Promise<void>(() => {});
+    vi.mocked(checkIn).mockImplementation(() => never);
+    vi.mocked(undoCheckIn).mockImplementation(() => never);
+    void tap(true); // being sent
+    await tick();
+    void tap(false); // waiting its turn behind it
+    await tick();
+
+    const saved = asWaiting({
+      timestamp: 0,
+      buster: '',
+      clientState: dehydrate(queryClient, { shouldDehydrateMutation: shouldPersistMutation }),
+    });
+    expect(saved.clientState.mutations).toHaveLength(2);
+
+    // The app is closed and opened again.
+    queryClient.clear();
+    const order: string[] = [];
+    vi.mocked(checkIn).mockReset().mockImplementation(async () => {
+      order.push('check-in');
+    });
+    vi.mocked(undoCheckIn).mockReset().mockImplementation(async () => {
+      order.push('undo');
+    });
+    hydrate(queryClient, JSON.parse(JSON.stringify(saved.clientState)));
+    await queryClient.resumePausedMutations();
+
+    expect(order).toEqual(['check-in', 'undo']);
+  });
+
+  it('does not save other unfinished requests, which cannot be replayed safely', async () => {
+    const creating = new MutationObserver(queryClient, {
+      mutationKey: ['create-fast'],
+      mutationFn: () => new Promise<void>(() => {}),
+    });
+    void creating.mutate();
+    await tick();
     expect(
       dehydrate(queryClient, { shouldDehydrateMutation: shouldPersistMutation }).mutations,
     ).toHaveLength(0);
