@@ -1,5 +1,6 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
+import { Switch, View } from 'react-native';
 
 import {
   Button,
@@ -11,25 +12,34 @@ import {
   Stack,
   T,
 } from '@/components/ui';
+import { TimeField } from '@/components/time-field';
 import { describeError } from '@/lib/api';
 import { confirmDestructive } from '@/lib/confirm';
 import type { Fast, Member } from '@/lib/database.types';
 import { FAST_TYPES, fastTypeInfo, HEALTH_REASONS, REMINDER_TIMES, type FastType } from '@/lib/fast-types';
 import { useLeaveFast, useUpdateMember } from '@/lib/queries';
 import { requestReminderPermission, syncReminders } from '@/lib/reminders';
+import { colors } from '@/theme';
 
-// The database stores a time of day as HH:MM:SS; the choices are HH:MM.
+// The database stores a time of day as HH:MM:SS; the form works in HH:MM.
 const toChoice = (time: string | null) => (time ? time.slice(0, 5) : null);
+
+// Offered when someone who had no reminder turns one on.
+const DEFAULT_REMINDER = REMINDER_TIMES[0].time;
 
 /** The form behind the settings screen. */
 export function SettingsForm({ fast, member }: { fast: Fast; member: Member }) {
   const update = useUpdateMember(member.id);
   const leave = useLeaveFast(fast.id, member.id);
   const [fastType, setFastType] = useState<FastType>(member.fast_type);
-  const [reminderTime, setReminderTime] = useState<string | null>(toChoice(member.reminder_time));
+  const saved = toChoice(member.reminder_time);
+  const [reminderOn, setReminderOn] = useState(saved !== null);
+  // Null while the reminder is on means the typed time is not usable yet.
+  const [time, setTime] = useState<string | null>(saved ?? DEFAULT_REMINDER);
+  const reminderTime = reminderOn ? time : null;
+  const timeMissing = reminderOn && time === null;
 
-  const changed =
-    fastType !== member.fast_type || reminderTime !== toChoice(member.reminder_time);
+  const changed = fastType !== member.fast_type || reminderTime !== saved;
   const [saving, setSaving] = useState(false);
   const busy = saving || update.isPending || leave.isPending;
 
@@ -38,7 +48,7 @@ export function SettingsForm({ fast, member }: { fast: Fast; member: Member }) {
     fastType !== member.fast_type && fastTypeInfo(fastType).involvesFood;
 
   const save = async () => {
-    if (busy) return;
+    if (busy || timeMissing) return;
     setSaving(true);
     // Turning reminders on is the moment to ask for permission.
     if (reminderTime && !member.reminder_time) {
@@ -73,7 +83,7 @@ export function SettingsForm({ fast, member }: { fast: Fast; member: Member }) {
       footer={
         <>
           <ErrorNote message={error ? describeError(error) : null} />
-          <Button label="Save" disabled={!changed || leave.isPending} busy={saving || update.isPending} onPress={save} />
+          <Button label="Save" disabled={!changed || timeMissing || leave.isPending} busy={saving || update.isPending} onPress={save} />
         </>
       }>
       <Stack gap="xs">
@@ -108,27 +118,27 @@ export function SettingsForm({ fast, member }: { fast: Fast; member: Member }) {
 
       <Stack gap="sm">
         <T variant="label">Daily reminder</T>
-        <ChoiceGroup label="Daily reminder">
-          {REMINDER_TIMES.map((option) => (
-            <Choice
-              key={option.time}
-              title={option.time}
-              description={option.label}
-              selected={reminderTime === option.time}
-              onPress={() => !busy && setReminderTime(option.time)}
+        <Card>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 48 }}>
+            <T>Remind me each day</T>
+            <Switch
+              accessibilityLabel="Remind me each day"
+              value={reminderOn}
+              disabled={busy}
+              onValueChange={(on) => {
+                setReminderOn(on);
+                if (on && time === null) setTime(saved ?? DEFAULT_REMINDER);
+              }}
+              trackColor={{ true: colors.accent }}
             />
-          ))}
-          <Choice
-            title="No reminder"
-            selected={reminderTime === null}
-            onPress={() => !busy && setReminderTime(null)}
-          />
-        </ChoiceGroup>
+          </View>
+          {reminderOn ? <TimeField label="Time" value={time ?? saved ?? DEFAULT_REMINDER} onChange={setTime} /> : null}
+        </Card>
       </Stack>
 
       <Stack gap="xs">
         <Button
-          kind="quiet"
+          kind="danger"
           label="Leave this fast"
           disabled={saving || update.isPending}
           busy={leave.isPending}

@@ -38,3 +38,11 @@ export function progressMessage(p: MemberProgress): string {
   const days = `${p.daysCompleted} of ${p.daysElapsed} ${p.daysElapsed === 1 ? 'day' : 'days'} completed`;
   return p.streak >= 3 ? `${days} · ${p.streak} days in a row` : days;
 }
+
+/** The line a member sees once the fast is over. No score, only thanks. */
+export function finishedSummary(checkedDays: readonly number[], lengthDays: number): string {
+  const done = new Set(checkedDays.filter((d) => d >= 1 && d <= lengthDays)).size;
+  if (done === 0) return 'Thank you for being part of it.';
+  if (done === lengthDays) return `You checked in on all ${lengthDays} days.`;
+  return `You checked in on ${done} of ${lengthDays} days. Every day you turned up mattered.`;
+}

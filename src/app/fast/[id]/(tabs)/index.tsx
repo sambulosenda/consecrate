@@ -5,7 +5,8 @@ import { Button, Card, CenteredSpinner, ErrorNote, Screen, Stack, T } from '@/co
 import { describeError } from '@/lib/api';
 import { formatLongDate } from '@/lib/dates';
 import { confirmTap } from '@/lib/haptics';
-import { memberProgress, progressMessage } from '@/lib/progress';
+import { fastTypeInfo } from '@/lib/fast-types';
+import { finishedSummary, memberProgress, progressMessage } from '@/lib/progress';
 import { useCheckedDays, useFastDay, useFastDays, useSetCheckedIn } from '@/lib/queries';
 import { planReminders } from '@/lib/reminder-plan';
 import { syncReminders } from '@/lib/reminders';
@@ -97,7 +98,18 @@ export default function Today() {
       ) : null}
 
       {progress.phase === 'finished' ? (
-        <T variant="bodyMuted">Thank you for fasting and praying with {fast.church_name}.</T>
+        <>
+          <T variant="bodyMuted">Thank you for fasting and praying with {fast.church_name}.</T>
+          {member ? <LookingBack memberId={member.id} lengthDays={fast.length_days} /> : null}
+          {member && fastTypeInfo(member.fast_type).involvesFood ? (
+            <Card>
+              <T variant="label">Breaking a food fast</T>
+              <T variant="bodyMuted">
+                Return to normal meals gently over a few days, starting with small, simple portions.
+              </T>
+            </Card>
+          ) : null}
+        </>
       ) : null}
 
       {progress.phase === 'active' && day.isPending ? <CenteredSpinner /> : null}
@@ -132,6 +144,18 @@ export default function Today() {
         />
       ) : null}
     </Screen>
+  );
+}
+
+/** The member's own days, shown once the fast is over. */
+function LookingBack({ memberId, lengthDays }: { memberId: string; lengthDays: number }) {
+  const checkedDays = useCheckedDays(memberId);
+  if (!checkedDays.data) return null;
+  return (
+    <Card>
+      <T variant="label">Your {lengthDays} days</T>
+      <T>{finishedSummary(checkedDays.data, lengthDays)}</T>
+    </Card>
   );
 }
 

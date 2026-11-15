@@ -107,10 +107,18 @@ export function T({
 type ButtonProps = {
   label: string;
   onPress: () => void;
-  kind?: 'primary' | 'secondary' | 'quiet';
+  /** 'danger' is a quiet button for an action that removes something. */
+  kind?: 'primary' | 'secondary' | 'quiet' | 'danger';
   disabled?: boolean;
   busy?: boolean;
 };
+
+const buttonInk = {
+  primary: colors.onAccent,
+  secondary: colors.ink,
+  quiet: colors.accent,
+  danger: colors.danger,
+} as const;
 
 export function Button({ label, onPress, kind = 'primary', disabled, busy }: ButtonProps) {
   const inactive = disabled || busy;
@@ -129,13 +137,13 @@ export function Button({ label, onPress, kind = 'primary', disabled, busy }: But
         inactive && styles.buttonDisabled,
       ]}>
       {busy ? (
-        <ActivityIndicator color={kind === 'primary' ? colors.onAccent : colors.accent} />
+        <ActivityIndicator color={buttonInk[kind]} />
       ) : (
         <Text
           maxFontSizeMultiplier={1.5}
           style={[
             type.button,
-            { color: kind === 'primary' ? colors.onAccent : kind === 'quiet' ? colors.accent : colors.ink },
+            { color: buttonInk[kind] },
           ]}>
           {label}
         </Text>

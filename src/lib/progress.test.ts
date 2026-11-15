@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { memberProgress, progressMessage } from './progress';
+import { finishedSummary, memberProgress, progressMessage } from './progress';
 
 describe('memberProgress', () => {
   it('starts empty on day 1', () => {
@@ -45,5 +45,18 @@ describe('progressMessage', () => {
 
   it('mentions a run of three or more days', () => {
     expect(progressMessage(memberProgress([1, 2, 3], 3))).toBe('3 of 3 days completed · 3 days in a row');
+  });
+});
+
+describe('finishedSummary', () => {
+  it('counts each day once and ignores days outside the fast', () => {
+    expect(finishedSummary([1, 2, 2, 5, 30], 21)).toBe(
+      'You checked in on 3 of 21 days. Every day you turned up mattered.',
+    );
+  });
+
+  it('marks a full fast and stays kind about an empty one', () => {
+    expect(finishedSummary([1, 2, 3, 4, 5, 6, 7], 7)).toBe('You checked in on all 7 days.');
+    expect(finishedSummary([], 21)).toBe('Thank you for being part of it.');
   });
 });
