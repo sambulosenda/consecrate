@@ -1,9 +1,11 @@
 import { Redirect, router, useLocalSearchParams } from 'expo-router';
 import { Pressable, Share, StyleSheet, View } from 'react-native';
 
+import { QrCode } from '@/components/qr-code';
 import { Button, Card, CenteredSpinner, ErrorNote, Screen, Stack, T } from '@/components/ui';
 import { describeError } from '@/lib/api';
 import { addDays, formatLongDate } from '@/lib/dates';
+import { joinLink } from '@/lib/join-link';
 import { useCheckInCounts, useFastDays, useMemberCount } from '@/lib/queries';
 import { useFast } from '@/lib/use-fast';
 import { colors, fonts, space } from '@/theme';
@@ -26,7 +28,7 @@ export default function Lead() {
 
   const share = () =>
     Share.share({
-      message: `Join ${fast.name} on Consecrate with the code ${fast.join_code}, or tap consecrate://join/${fast.join_code}`,
+      message: `Join ${fast.name} on Consecrate with the code ${fast.join_code}, or tap ${joinLink(fast.join_code)}`,
     });
 
   return (
@@ -52,6 +54,15 @@ export default function Lead() {
               : `${memberCount.data} members have joined`}
         </T>
         <Button label="Share the code" onPress={share} />
+        <QrCode
+          value={joinLink(fast.join_code)}
+          size={200}
+          label={`QR code to join ${fast.name}`}
+        />
+        <T variant="small" style={{ textAlign: 'center' }}>
+          Show this on a screen. Anyone with the app can point their phone&apos;s camera at it to
+          join.
+        </T>
       </Card>
 
       {reportedDays > 0 && counts.data ? (
