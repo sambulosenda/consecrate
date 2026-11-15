@@ -1,98 +1,85 @@
-import * as Device from 'expo-device';
-import { Platform, StyleSheet } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Link, Redirect, router } from 'expo-router';
+import { useState } from 'react';
+import { View } from 'react-native';
 
-import { AnimatedIcon } from '@/components/animated-icon';
-import { HintRow } from '@/components/hint-row';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { WebBadge } from '@/components/web-badge';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
+import { Button, CenteredSpinner, ErrorNote, Field, Screen, Stack, T } from '@/components/ui';
+import { describeError } from '@/lib/api';
+import { formatLongDate } from '@/lib/dates';
+import { isValidJoinCode, normalizeJoinCode } from '@/lib/join-code';
+import { useFastPreview, useMyFasts } from '@/lib/queries';
+import { colors, type } from '@/theme';
 
-function getDevMenuHint() {
-  if (Platform.OS === 'web') {
-    return <ThemedText type="small">use browser devtools</ThemedText>;
-  }
-  if (Device.isDevice) {
+/**
+ * The front door. Someone already in a fast goes straight to it ("today
+ * first"); everyone else lands on the join screen.
+ */
+export default function Welcome() {
+  const myFasts = useMyFasts();
+  const [code, setCode] = useState('');
+  const preview = useFastPreview(code);
+
+  if (myFasts.isPending && myFasts.fetchStatus === 'paused') {
     return (
-      <ThemedText type="small">
-        shake device or press <ThemedText type="code">m</ThemedText> in terminal
-      </ThemedText>
+      <Screen>
+        <T variant="display">You are offline</T>
+        <T variant="bodyMuted">Connect to the internet to join or create a fast.</T>
+      </Screen>
     );
   }
-  const shortcut = Platform.OS === 'android' ? 'cmd+m (or ctrl+m)' : 'cmd+d';
+  if (myFasts.isPending) return <CenteredSpinner />;
+
+  const current = myFasts.data?.[0];
+  if (current) return <Redirect href={`/fast/${current.fast.id}`} />;
+
+  const complete = isValidJoinCode(code);
+  const found = complete ? (preview.data ?? null) : null;
+  const notFound = complete && preview.isSuccess && !preview.data;
+
   return (
-    <ThemedText type="small">
-      press <ThemedText type="code">{shortcut}</ThemedText>
-    </ThemedText>
+    <Screen
+      footer={
+        <View style={{ alignItems: 'center' }}>
+          <T variant="bodyMuted">
+            Leading a fast?{' '}
+            <Link href="/create" style={[type.button, { color: colors.accent }]}>
+              Create one
+            </Link>
+          </T>
+        </View>
+      }>
+      <T variant="label">Consecrate</T>
+      <Stack gap="md">
+        <T variant="display">Join your church&apos;s fast</T>
+        <T variant="bodyMuted">Enter the six-character code your leader shared.</T>
+      </Stack>
+
+      <Field
+        label="Join code"
+        codeStyle
+        value={code}
+        onChangeText={(text) => setCode(normalizeJoinCode(text))}
+        autoCapitalize="characters"
+        autoCorrect={false}
+        autoComplete="off"
+        maxLength={12}
+        returnKeyType="go"
+        onSubmitEditing={() => found && router.push(`/join/${code}`)}
+        hint={
+          found
+            ? `${found.name} · ${found.church_name}, starting ${formatLongDate(found.start_date)}`
+            : undefined
+        }
+        error={notFound ? 'No fast has that code. Check it with your leader.' : null}
+      />
+      <ErrorNote message={preview.isError ? describeError(preview.error) : null} />
+      <ErrorNote message={myFasts.isError ? describeError(myFasts.error) : null} />
+
+      <Button
+        label="Continue"
+        disabled={!found}
+        busy={complete && preview.isFetching}
+        onPress={() => router.push(`/join/${code}`)}
+      />
+    </Screen>
   );
 }
-
-export default function HomeScreen() {
-  return (
-    <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
-        <ThemedView style={styles.heroSection}>
-          <AnimatedIcon />
-          <ThemedText type="title" style={styles.title}>
-            Welcome to&nbsp;Expo
-          </ThemedText>
-        </ThemedView>
-
-        <ThemedText type="code" style={styles.code}>
-          get started
-        </ThemedText>
-
-        <ThemedView type="backgroundElement" style={styles.stepContainer}>
-          <HintRow
-            title="Try editing"
-            hint={<ThemedText type="code">src/app/index.tsx</ThemedText>}
-          />
-          <HintRow title="Dev tools" hint={getDevMenuHint()} />
-          <HintRow
-            title="Fresh start"
-            hint={<ThemedText type="code">npm run reset-project</ThemedText>}
-          />
-        </ThemedView>
-
-        {Platform.OS === 'web' && <WebBadge />}
-      </SafeAreaView>
-    </ThemedView>
-  );
-}
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    flexDirection: 'row',
-  },
-  safeArea: {
-    flex: 1,
-    paddingHorizontal: Spacing.four,
-    alignItems: 'center',
-    gap: Spacing.three,
-    paddingBottom: BottomTabInset + Spacing.three,
-    maxWidth: MaxContentWidth,
-  },
-  heroSection: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    flex: 1,
-    paddingHorizontal: Spacing.four,
-    gap: Spacing.four,
-  },
-  title: {
-    textAlign: 'center',
-  },
-  code: {
-    textTransform: 'uppercase',
-  },
-  stepContainer: {
-    gap: Spacing.three,
-    alignSelf: 'stretch',
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.four,
-    borderRadius: Spacing.four,
-  },
-});
