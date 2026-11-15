@@ -43,6 +43,7 @@ export default function Join() {
   const [firstName, setFirstName] = useState('');
   const [fastType, setFastType] = useState<FastType | null>(null);
   const [reminderTime, setReminderTime] = useState<string>(REMINDER_TIMES[0].time);
+  const [submitting, setSubmitting] = useState(false);
 
   if (preview.isPending && preview.fetchStatus !== 'idle') return <CenteredSpinner />;
 
@@ -63,14 +64,22 @@ export default function Join() {
 
   const fast = preview.data;
 
+  // Covers the whole submission, including the wait for the permission prompt,
+  // during which the join request itself has not started yet.
+  const busy = submitting || join.isPending;
+
   const submit = async (time: string | null) => {
-    if (!fastType) return;
+    if (!fastType || busy) return;
+    setSubmitting(true);
     // Ask for notification permission at the moment it makes sense: right
     // after choosing a reminder time. Declining still joins the fast.
     if (time) await requestReminderPermission().catch(() => false);
     join.mutate(
       { code, firstName: firstName.trim(), fastType, reminderTime: time },
-      { onSuccess: (member) => router.replace(`/fast/${member.fast_id}`) },
+      {
+        onSuccess: (member) => router.replace(`/fast/${member.fast_id}`),
+        onSettled: () => setSubmitting(false),
+      },
     );
   };
 
@@ -116,11 +125,11 @@ export default function Join() {
         footer={
           <>
             <ErrorNote message={join.isError ? describeError(join.error) : null} />
-            <Button label="Join the fast" busy={join.isPending} onPress={() => submit(reminderTime)} />
+            <Button label="Join the fast" busy={busy} onPress={() => submit(reminderTime)} />
             <Button
               kind="quiet"
               label="Join without reminders"
-              disabled={join.isPending}
+              disabled={busy}
               onPress={() => submit(null)}
             />
           </>

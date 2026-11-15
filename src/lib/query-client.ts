@@ -10,7 +10,13 @@
  */
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persister';
-import { onlineManager, QueryClient } from '@tanstack/react-query';
+import {
+  defaultShouldDehydrateMutation,
+  onlineManager,
+  QueryClient,
+  type Mutation,
+} from '@tanstack/react-query';
+import type { PersistedClient, Persister } from '@tanstack/react-query-persist-client';
 import * as Network from 'expo-network';
 
 import { checkIn, undoCheckIn } from './api';
@@ -26,10 +32,41 @@ export const queryClient = new QueryClient({
   },
 });
 
-export const persister = createAsyncStoragePersister({
+const storage = createAsyncStoragePersister({
   storage: AsyncStorage,
   key: 'consecrate-cache-v1',
 });
+
+/**
+ * A check-in stays saved on the phone until the server has answered, not only
+ * while it waits for a connection. Otherwise one that was being sent when the
+ * app was closed would be lost.
+ */
+export function shouldPersistMutation(mutation: Mutation): boolean {
+  return defaultShouldDehydrateMutation(mutation) || mutation.state.status === 'pending';
+}
+
+/**
+ * Whatever was unfinished when it was saved is stored as waiting, so that the
+ * next launch sends it again. Sending a check-in twice is harmless: the
+ * server ignores a repeat.
+ */
+export function asWaiting(client: PersistedClient): PersistedClient {
+  return {
+    ...client,
+    clientState: {
+      ...client.clientState,
+      mutations: client.clientState.mutations.map((m) =>
+        m.state.status === 'pending' ? { ...m, state: { ...m.state, isPaused: true } } : m,
+      ),
+    },
+  };
+}
+
+export const persister: Persister = {
+  ...storage,
+  persistClient: (client) => storage.persistClient(asWaiting(client)),
+};
 
 // Tell the query client when the phone is offline, so it pauses requests
 // instead of failing them.

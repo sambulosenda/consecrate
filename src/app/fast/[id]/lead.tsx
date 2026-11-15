@@ -11,7 +11,7 @@ import { colors, fonts, space } from '@/theme';
 /** The leader's screen: the join code to share and the daily plan to edit. */
 export default function Lead() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { query, fast, isLeader, dayNumber } = useFast(id);
+  const { query, fast, isLeader, progress, dayNumber } = useFast(id);
   const memberCount = useMemberCount(id, isLeader);
   const days = useFastDays(id);
   const counts = useCheckInCounts(id, isLeader);
@@ -19,6 +19,10 @@ export default function Lead() {
   if (query.isPending) return <CenteredSpinner />;
   if (!fast) return <Redirect href="/" />;
   if (!isLeader) return <Redirect href={`/fast/${id}`} />;
+
+  // How many days have check-ins worth showing: up to today while the fast
+  // runs, every day once it is over, none before it starts.
+  const reportedDays = dayNumber ?? (progress?.phase === 'finished' ? fast.length_days : 0);
 
   const share = () =>
     Share.share({
@@ -50,10 +54,10 @@ export default function Lead() {
         <Button label="Share the code" onPress={share} />
       </Card>
 
-      {dayNumber && counts.data ? (
+      {reportedDays > 0 && counts.data ? (
         <Card>
           <T variant="eyebrow">Check-ins each day</T>
-          {Array.from({ length: dayNumber }, (_, i) => i + 1).map((n) => {
+          {Array.from({ length: reportedDays }, (_, i) => i + 1).map((n) => {
             const checkIns = counts.data.find((c) => c.dayNumber === n)?.checkIns ?? 0;
             const joined = memberCount.data ?? 0;
             const share = joined > 0 ? Math.min(checkIns / joined, 1) : 0;
@@ -81,7 +85,7 @@ export default function Lead() {
               </View>
             );
           })}
-          <T variant="small">Day {dayNumber} is still in progress.</T>
+          {dayNumber ? <T variant="small">Day {dayNumber} is still in progress.</T> : null}
         </Card>
       ) : null}
 

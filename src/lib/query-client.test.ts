@@ -1,8 +1,15 @@
-import { MutationObserver, QueryObserver } from '@tanstack/react-query';
+import { dehydrate, MutationObserver, QueryObserver } from '@tanstack/react-query';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { checkIn, undoCheckIn } from './api';
-import { CHECK_IN_MUTATION, keys, queryClient, type CheckInInput } from './query-client';
+import {
+  asWaiting,
+  CHECK_IN_MUTATION,
+  keys,
+  queryClient,
+  shouldPersistMutation,
+  type CheckInInput,
+} from './query-client';
 
 // vitest lifts these above the imports.
 
@@ -148,5 +155,39 @@ describe('check-in taps in quick succession', () => {
     await tap(true);
     await tick();
     expect(shown()).toEqual([]);
+  });
+});
+
+describe('a check-in that is being sent when the app closes', () => {
+  beforeEach(() => {
+    queryClient.clear();
+    vi.mocked(checkIn).mockReset();
+  });
+
+  it('is still saved, and saved as waiting so the next launch sends it', async () => {
+    const sending = deferred();
+    vi.mocked(checkIn).mockImplementation(() => sending.promise);
+    const a = tap(true);
+    await tick();
+
+    // What the default rule would save: nothing, because it is not paused.
+    expect(dehydrate(queryClient).mutations).toHaveLength(0);
+
+    const saved = asWaiting({
+      timestamp: 0,
+      buster: '',
+      clientState: dehydrate(queryClient, { shouldDehydrateMutation: shouldPersistMutation }),
+    });
+    expect(saved.clientState.mutations).toHaveLength(1);
+    expect(saved.clientState.mutations[0].state.isPaused).toBe(true);
+    expect(saved.clientState.mutations[0].state.variables).toEqual(input(true));
+
+    sending.resolve();
+    await a;
+    await tick();
+    // Once the server has answered there is nothing left to resend.
+    expect(
+      dehydrate(queryClient, { shouldDehydrateMutation: shouldPersistMutation }).mutations,
+    ).toHaveLength(0);
   });
 });

@@ -8,7 +8,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 
 import { SetupNeeded } from '@/components/setup-needed';
-import { CACHE_MAX_AGE, persister, queryClient } from '@/lib/query-client';
+import { CACHE_MAX_AGE, persister, queryClient, shouldPersistMutation } from '@/lib/query-client';
 import { isSupabaseConfigured } from '@/lib/supabase';
 import { colors } from '@/theme';
 
@@ -35,7 +35,11 @@ export default function RootLayout() {
   return (
     <PersistQueryClientProvider
       client={queryClient}
-      persistOptions={{ persister, maxAge: CACHE_MAX_AGE }}
+      persistOptions={{
+        persister,
+        maxAge: CACHE_MAX_AGE,
+        dehydrateOptions: { shouldDehydrateMutation: shouldPersistMutation },
+      }}
       // Send anything saved while offline, then refresh what is on screen.
       onSuccess={() =>
         queryClient.resumePausedMutations().then(() => queryClient.invalidateQueries())

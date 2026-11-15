@@ -31,7 +31,7 @@ export default function Today() {
       reminderTime,
       now: new Date(),
     });
-    syncReminders(plan).catch(() => {});
+    syncReminders(fast.id, plan).catch(() => {});
   }, [fast, days.data, reminderTime]);
 
   if (query.isPending) return <CenteredSpinner />;

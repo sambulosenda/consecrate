@@ -85,15 +85,8 @@ export function useLeaveFast(fastId: string, memberId: string) {
   return useMutation({
     mutationFn: () => leaveFast(memberId),
     onSuccess: () => {
-      // Nothing of theirs should linger on the phone, including any check-in
-      // still waiting to be sent, which the server would now refuse.
-      client
-        .getMutationCache()
-        .findAll({
-          mutationKey: CHECK_IN_MUTATION,
-          predicate: (m) => (m.state.variables as CheckInInput | undefined)?.memberId === memberId,
-        })
-        .forEach((m) => client.getMutationCache().remove(m));
+      // Nothing of theirs should linger on the phone. A check-in still queued
+      // is left to run: the server refuses it, and it settles on its own.
       client.removeQueries({ queryKey: keys.checkedDays(memberId) });
       client.removeQueries({ queryKey: ['group', fastId] });
       return client.invalidateQueries({ queryKey: keys.myFasts });
