@@ -6,6 +6,7 @@ import {
   getFastDay,
   getMyFast,
   joinFast,
+  leaveFast,
   listCheckedDays,
   listCheckInCounts,
   listFastDays,
@@ -13,7 +14,9 @@ import {
   listMyFasts,
   previewFast,
   updateFastDay,
+  updateMember,
   type FastDayContent,
+  type MemberSettings,
 } from './api';
 import { isValidJoinCode } from './join-code';
 import { CHECK_IN_MUTATION, keys, type CheckInInput } from './query-client';
@@ -66,6 +69,35 @@ export function useCreateFast() {
   return useMutation({
     mutationFn: createFast,
     onSuccess: () => client.invalidateQueries({ queryKey: keys.myFasts }),
+  });
+}
+
+export function useUpdateMember(memberId: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (settings: MemberSettings) => updateMember(memberId, settings),
+    onSuccess: () => client.invalidateQueries({ queryKey: keys.myFasts }),
+  });
+}
+
+export function useLeaveFast(fastId: string, memberId: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: () => leaveFast(memberId),
+    onSuccess: () => {
+      // Nothing of theirs should linger on the phone, including any check-in
+      // still waiting to be sent, which the server would now refuse.
+      client
+        .getMutationCache()
+        .findAll({
+          mutationKey: CHECK_IN_MUTATION,
+          predicate: (m) => (m.state.variables as CheckInInput | undefined)?.memberId === memberId,
+        })
+        .forEach((m) => client.getMutationCache().remove(m));
+      client.removeQueries({ queryKey: keys.checkedDays(memberId) });
+      client.removeQueries({ queryKey: ['group', fastId] });
+      return client.invalidateQueries({ queryKey: keys.myFasts });
+    },
   });
 }
 

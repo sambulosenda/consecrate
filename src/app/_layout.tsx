@@ -54,6 +54,7 @@ export default function RootLayout() {
           }}>
           <Stack.Screen name="index" options={{ headerShown: false }} />
           <Stack.Screen name="fast/[id]/(tabs)" options={{ headerShown: false }} />
+          <Stack.Screen name="fast/[id]/settings" options={{ title: 'Settings' }} />
         </Stack>
       ) : (
         <SetupNeeded />

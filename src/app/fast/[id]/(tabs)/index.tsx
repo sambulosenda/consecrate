@@ -123,6 +123,14 @@ export default function Today() {
           ) : null}
         </>
       ) : null}
+
+      {member ? (
+        <Button
+          kind="quiet"
+          label="Change how you fast or your reminder"
+          onPress={() => router.push(`/fast/${id}/settings`)}
+        />
+      ) : null}
     </Screen>
   );
 }

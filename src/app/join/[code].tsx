@@ -14,7 +14,13 @@ import {
   T,
 } from '@/components/ui';
 import { describeError } from '@/lib/api';
-import { FAST_TYPES, fastTypeInfo, type FastType } from '@/lib/fast-types';
+import {
+  FAST_TYPES,
+  fastTypeInfo,
+  HEALTH_REASONS,
+  REMINDER_TIMES,
+  type FastType,
+} from '@/lib/fast-types';
 import { normalizeJoinCode } from '@/lib/join-code';
 import { useFastPreview, useJoinFast } from '@/lib/queries';
 import { requestReminderPermission } from '@/lib/reminders';
@@ -26,21 +32,6 @@ import { requestReminderPermission } from '@/lib/reminders';
  */
 
 type Step = 'details' | 'health' | 'reminder';
-
-const REMINDER_TIMES = [
-  { time: '06:30', label: 'Early morning' },
-  { time: '08:00', label: 'Morning' },
-  { time: '12:30', label: 'Midday' },
-  { time: '20:00', label: 'Evening' },
-] as const;
-
-const HEALTH_REASONS = [
-  'are pregnant or breastfeeding',
-  'have diabetes',
-  'take regular medication',
-  'are under 18',
-  'have a history of disordered eating',
-];
 
 export default function Join() {
   const params = useLocalSearchParams<{ code: string }>();

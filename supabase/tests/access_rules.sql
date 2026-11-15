@@ -6,7 +6,8 @@ insert into auth.users (id) values
   ('00000000-0000-0000-0000-00000000000a'),  -- leader
   ('00000000-0000-0000-0000-00000000000b'),  -- member
   ('00000000-0000-0000-0000-00000000000c'),  -- second member
-  ('00000000-0000-0000-0000-00000000000d');  -- outsider
+  ('00000000-0000-0000-0000-00000000000d'),  -- outsider
+  ('00000000-0000-0000-0000-00000000000e');  -- member who changes settings, then leaves
 
 create table test_ctx (k text primary key, v text);
 grant all on test_ctx to authenticated;
@@ -146,6 +147,37 @@ begin
   assert (select count(*) from public.members) = 0, 'outsider should still see no members';
   assert (select count(*) from public.check_ins) = 0, 'outsider should see no check-ins';
   assert (select count(*) from public.fast_check_in_counts((select v::uuid from test_ctx where k = 'fast_id'))) = 0, 'outsider should get no check-in counts';
+end $$;
+
+-- Settings: a member changes their own fast type and reminder, and can leave.
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000e';
+do $$
+declare
+  v_code text := (select v from test_ctx where k = 'code');
+  v_b uuid := (select v::uuid from test_ctx where k = 'member_b');
+  m public.members;
+begin
+  m := public.join_fast(v_code, 'Grace', 'daniel', '08:00');
+  insert into public.check_ins (member_id, day_number) values (m.id, 1);
+
+  update public.members set fast_type = 'non_food', reminder_time = null where id = m.id;
+  assert (select fast_type from public.members where id = m.id) = 'non_food', 'member should change their fast type';
+  assert (select reminder_time from public.members where id = m.id) is null, 'member should turn their reminder off';
+
+  update public.members set first_name = 'Changed' where id = v_b;
+  assert (select first_name from public.members where id = v_b) <> 'Changed', 'member must not change someone else''s settings';
+  delete from public.members where id = v_b;
+  assert exists (select 1 from public.members where id = v_b), 'member must not remove someone else';
+
+  delete from public.members where id = m.id;
+  assert (select count(*) from public.members) = 0, 'after leaving, the fast is no longer visible';
+  insert into test_ctx values ('left_member', m.id::text);
+end $$;
+reset role;
+do $$
+begin
+  assert not exists (select 1 from public.check_ins where member_id = (select v::uuid from test_ctx where k = 'left_member')), 'leaving should remove the member''s check-ins';
+  assert (select count(*) from public.members where id = (select v::uuid from test_ctx where k = 'member_b')) = 1, 'other members are untouched';
 end $$;
 
 -- Signed-out callers get nothing at all.

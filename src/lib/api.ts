@@ -34,6 +34,28 @@ export async function joinFast(input: JoinFastInput): Promise<Member> {
   return data;
 }
 
+export type MemberSettings = { fastType: FastType; reminderTime: string | null };
+
+/** A member changes how they fast or when they are reminded. */
+export async function updateMember(memberId: string, settings: MemberSettings): Promise<Member> {
+  await ensureSession();
+  const { data, error } = await supabase()
+    .from('members')
+    .update({ fast_type: settings.fastType, reminder_time: settings.reminderTime })
+    .eq('id', memberId)
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+/** A member leaves a fast. Their check-ins for it are removed with them. */
+export async function leaveFast(memberId: string): Promise<void> {
+  await ensureSession();
+  const { error } = await supabase().from('members').delete().eq('id', memberId);
+  if (error) throw error;
+}
+
 export type CreateFastInput = {
   name: string;
   churchName: string;

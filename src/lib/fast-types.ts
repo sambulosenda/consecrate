@@ -47,3 +47,20 @@ export function fastTypeInfo(id: FastType): FastTypeInfo {
 
 export const FAST_LENGTHS = [7, 14, 21, 40] as const;
 export type FastLength = (typeof FAST_LENGTHS)[number];
+
+/** The reminder times offered when joining and in settings. */
+export const REMINDER_TIMES = [
+  { time: '06:30', label: 'Early morning' },
+  { time: '08:00', label: 'Morning' },
+  { time: '12:30', label: 'Midday' },
+  { time: '20:00', label: 'Evening' },
+] as const;
+
+/** Who should speak to a doctor before a food fast (the health notice). */
+export const HEALTH_REASONS = [
+  'are pregnant or breastfeeding',
+  'have diabetes',
+  'take regular medication',
+  'are under 18',
+  'have a history of disordered eating',
+] as const;
